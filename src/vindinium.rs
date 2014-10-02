@@ -4,6 +4,7 @@ use std::string::String;
 use self::serialize::{Encoder, Encodable, Decoder, Decodable};
 use self::serialize::json;
 
+
 // Types
 
 pub type Key = String;
@@ -159,7 +160,7 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Hero {
 impl <S: Decoder<E>, E> Decodable<S, E> for Board {
     fn decode(d: &mut S) -> Result<Board, E> {
         let size = try!(d.read_struct_field("size", 0, |d| Decodable::decode(d)));
-        Ok(Board { size: size, tiles: try!(d.read_struct_field("tiles", 1, |d| {
+        let tiles = try!(d.read_struct_field("tiles", 1, |d| {
             let mut tiles: Vec<Vec<Tile>> = Vec::with_capacity(size);
             let tile_str = try!(d.read_str());
             if tile_str.len() != size * size * 2 {
@@ -199,7 +200,8 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Board {
                 }
             }
             Ok(tiles)
-        }))})
+        }));
+        Ok(Board { size: size, tiles: tiles })
     }
 }
 
