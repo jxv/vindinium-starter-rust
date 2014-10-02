@@ -1,0 +1,8 @@
+[package]
+
+name = "vindinium"
+version = "0.0.1"
+authors = ["jxv https://github.com/jxv/vindinium-starter-rust"]
+
+[dependencies.teepee]
+git = "https://github.com/teepee/teepee"
