@@ -1,4 +1,6 @@
 extern crate serialize;
+extern crate http;
+extern crate url;
 use std::char::{to_digit};
 use std::string::String;
 use self::serialize::{Encoder, Encodable, Decoder, Decodable};

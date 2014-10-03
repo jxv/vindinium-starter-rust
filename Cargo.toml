@@ -4,5 +4,8 @@ name = "vindinium"
 version = "0.0.1"
 authors = ["jxv https://github.com/jxv/vindinium-starter-rust"]
 
-[dependencies.rust-http]
-git = "https://github.com/chris-morgan/rust-http"
+[dependencies.url]
+git = "https://github.com/servo/rust-url.git"
+
+[dependencies.http]
+git = "https://github.com/chris-morgan/rust-http.git"
