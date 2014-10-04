@@ -1,10 +1,16 @@
 extern crate serialize;
 extern crate http;
 extern crate url;
-use std::char::{to_digit};
+use std::collections::{TreeMap};
 use std::string::String;
+use std::char::{to_digit};
 use self::serialize::{Encoder, Encodable, Decoder, Decodable};
 use self::serialize::json;
+use std::io::File;
+use http::client::RequestWriter;
+use http::method::{Get,Post};
+use url::Url;
+
 
 
 // Types
@@ -94,8 +100,43 @@ impl Settings {
     }
 }
 
-pub fn request(settings: &Settings, val: &str) -> Option<State> {
-    match json::decode(val) {
+pub fn request_state(key: String, url: String, obj: json::JsonObject) -> Option<State> {
+    let mut obj: json::JsonObject = obj.clone();
+    obj.insert("key".to_string(), json::String(key));
+
+    let url = match Url::parse(url.as_slice()) {
+        Ok(u) => u,
+        Err(err) => fail!("{}", err),
+    };
+
+    let mut request: RequestWriter = match RequestWriter::new(Post, url) {
+        Ok(req) => req,
+        Err(err) => fail!("{}", err),
+    };
+    
+    let msg = json::encode(&json::Object(obj));
+    let content_type = http::headers::content_type::MediaType::new
+        ("application".into_string(), "json".into_string(), Vec::new());
+    request.headers.content_length = Some(msg.len());
+    request.headers.content_type = Some(content_type);
+    request.headers.accept = Some("application/json".to_string());
+    request.headers.user_agent = Some("vindinium-starter-rust".to_string());
+
+    match request.write(msg.as_bytes()) {
+        Ok(()) => (),
+        Err(err) => fail!("{}", err),
+    };
+
+    let mut response = match request.read_response() {
+        Ok(resp) => resp,
+        Err((_, err)) => fail!("{}", err),
+    };
+    let state_str = match response.read_to_string() {
+        Ok(s) => s,
+        Err(err) => fail!("{}", err),
+    };
+
+    match json::decode(state_str.as_slice()) {
         Err(err) => {
            println!("err: vindinium::request - {}", err);
            None
