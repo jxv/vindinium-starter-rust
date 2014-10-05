@@ -98,7 +98,8 @@ pub enum Dir {
 // API
 
 pub trait Bot {
-    fn step(&mut self, &State) -> Dir;
+    fn step(&self, &State) -> Self;
+    fn dir(&self) -> Dir;
 }
 
 impl Settings {

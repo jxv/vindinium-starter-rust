@@ -30,8 +30,9 @@ fn main() {
         if state.game.finished {
             break;
         }
-        let dir = bot.step(&state);
-        let (url, obj) = step_msg(&settings, &state, dir);
+        bot = bot.step(&state);
+        let (url, obj) = step_msg(&settings, &state, bot.dir());
+        println!("bot: {}\nstate: {}\n", bot, state);
         state = match request(url, obj) {
             Some(s) => s,
             None => state,
