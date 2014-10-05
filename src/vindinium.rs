@@ -2,6 +2,7 @@ extern crate serialize;
 extern crate http;
 extern crate url;
 use std::string::{String};
+use std::fmt;
 use std::collections::TreeMap;
 use std::char::{to_digit};
 use self::serialize::{Encoder, Encodable, Decoder, Decodable};
@@ -23,14 +24,14 @@ pub enum Mode {
     Arena
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone)]
 pub struct Settings {
     pub key: Key,
     pub url: String,
     pub mode: Mode,
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone)]
 pub struct State {
     pub game: Game,
     pub hero: Hero,
@@ -39,7 +40,7 @@ pub struct State {
     pub play_url: String,
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone)]
 pub struct Game {
     pub id: GameId,
     pub turn: int,
@@ -49,13 +50,13 @@ pub struct Game {
     pub finished: bool,
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone)]
 pub struct Pos {
     pub x: int,
     pub y: int,
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone)]
 pub struct Hero {
     pub id: HeroId,
     pub name: String,
@@ -69,13 +70,13 @@ pub struct Hero {
     pub crashed: bool,
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone)]
 pub struct Board {
     pub size: uint,
     pub tiles: Vec<Vec<Tile>>,
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone)]
 pub enum Tile {
     FreeTile,
     WoodTile,
@@ -84,7 +85,7 @@ pub enum Tile {
     MineTile(Option<HeroId>),
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone, Rand)]
 pub enum Dir {
     Stay,
     North,
@@ -166,8 +167,11 @@ pub fn request(url: String, obj: json::JsonObject) -> Option<State> {
     }
 }
 
-pub fn step(state: &State, dir: Dir) -> Option<State> {
-    None
+pub fn step(settings: &Settings, state: &State, dir: Dir) -> (String, json::JsonObject) {
+    let mut obj: json::JsonObject = TreeMap::new();
+    obj.insert("key".to_string(), json::String(settings.key.clone()));
+    obj.insert("dir".to_string(), json::String(format_args!(fmt::format, "{}", dir))); 
+    (state.play_url.clone(), obj)
 }
 
 pub fn start(settings: &Settings) -> (String, json::JsonObject) {

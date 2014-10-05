@@ -1,13 +1,22 @@
-use vindinium::{Bot, Dir, Stay, State};
+use std::rand;
+use vindinium::{Bot, Dir, State, HeroId};
 
 
 pub struct RandomBot {
-    pub dir: Dir,
+    pub hero_id: HeroId,
+}
+
+impl RandomBot {
+    pub fn new() -> RandomBot {
+        RandomBot { hero_id: 0 }
+    }
 }
 
 impl Bot for RandomBot {
+
     fn move(&mut self, state: &State) -> Dir {
-        self.dir = Stay;
-        self.dir
+        println!("{}\n\n", state);
+        self.hero_id = state.hero.id;
+        rand::random()
     }
 }

@@ -5,7 +5,6 @@ extern crate http;
 extern crate url;
 use std::string::String;
 use std::io::File;
-use self::serialize::json;
 
 use vindinium::*;
 use bot::*;
@@ -19,20 +18,21 @@ fn main() {
     let settings = vindinium::Settings {
         key: get_key("key.txt"),
         url: "http://vindinium.org".to_string(),
-        mode: Training(Some(1), Some("m1".to_string())),
+        mode: Training(Some(100), Some("m1".to_string())),
     };
-    let (mut url, mut obj) = start(&settings);
+    let (url, obj) = start(&settings);
     let mut state = match vindinium::request(url, obj) {
         Some(s) => s,
         None => { return (); }
     };
-    let mut bot = RandomBot { dir: Stay };
+    let mut bot = RandomBot::new();
     loop {
         if state.game.finished {
             break;
         }
         let dir = bot.move(&state);
-        state = match step(&state, dir) {
+        let (url, obj) = step(&settings, &state, dir);
+        state = match request(url, obj) {
             Some(s) => s,
             None => state,
         }
