@@ -1,4 +1,5 @@
 # vindinium-starter-rust
 
-## Attention: Before Running!
-In this directory, create a file "key.txt" with your key from registration.
+## Attention! Before Running:
+* In this directory, create a file "key.txt" with your key obtained from registration.
+* This crate is built with the current nightly compiler.
