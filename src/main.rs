@@ -35,7 +35,7 @@ fn main() {
         println!("bot: {}\nstate: {}\n", bot, state);
         state = match request(url, obj) {
             Some(s) => s,
-            None => state,
+            None => { break; },
         }
     }
 }
