@@ -2,6 +2,7 @@ extern crate serialize;
 extern crate http;
 extern crate url;
 use std::string::{String};
+use std::collections::TreeMap;
 use std::char::{to_digit};
 use self::serialize::{Encoder, Encodable, Decoder, Decodable};
 use self::serialize::json;
@@ -95,6 +96,10 @@ pub enum Dir {
 
 // API
 
+pub trait Bot {
+    fn move(&mut self, &State) -> Dir;
+}
+
 impl Settings {
     pub fn start_url(&self, v: &str) -> String {
         let mut url = self.url.clone();
@@ -161,6 +166,36 @@ pub fn request(url: String, obj: json::JsonObject) -> Option<State> {
     }
 }
 
+pub fn step(state: &State, dir: Dir) -> Option<State> {
+    None
+}
+
+pub fn start(settings: &Settings) -> (String, json::JsonObject) {
+    match settings.mode.clone() {
+        Training(opt_turns, opt_map) => start_training(settings, opt_turns, opt_map),
+        Arena => start_arena(settings),
+    }
+}
+
+pub fn start_training(settings: &Settings, opt_turns: Option<u64>, opt_map: Option<String>) -> (String, json::JsonObject) {
+    let mut obj: json::JsonObject = TreeMap::new();
+    obj.insert("key".to_string(), json::String(settings.key.clone()));
+    match opt_turns {
+        Some(turns) => { obj.insert("turns".to_string(), json::U64(turns)); }, 
+        None => (),
+    };
+    match opt_map {
+        Some(map) => { obj.insert("map".to_string(), json::String(map)); },
+        None => (),
+    };
+    (settings.start_url("training"), obj)
+}
+
+pub fn start_arena(settings: &Settings) -> (String, json::JsonObject) {
+    let mut obj: json::JsonObject = TreeMap::new();
+    obj.insert("key".to_string(), json::String(settings.key.clone()));
+    (settings.start_url("arena"), obj)
+}
 
 // Json
 
