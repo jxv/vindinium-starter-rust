@@ -20,7 +20,7 @@ fn main() {
         url: "http://vindinium.org".to_string(),
         mode: Training(Some(100), Some("m1".to_string())),
     };
-    let (url, obj) = start(&settings);
+    let (url, obj) = start_msg(&settings);
     let mut state = match vindinium::request(url, obj) {
         Some(s) => s,
         None => { return (); }
@@ -30,8 +30,8 @@ fn main() {
         if state.game.finished {
             break;
         }
-        let dir = bot.move(&state);
-        let (url, obj) = step(&settings, &state, dir);
+        let dir = bot.step(&state);
+        let (url, obj) = step_msg(&settings, &state, dir);
         state = match request(url, obj) {
             Some(s) => s,
             None => state,

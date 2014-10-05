@@ -98,7 +98,7 @@ pub enum Dir {
 // API
 
 pub trait Bot {
-    fn move(&mut self, &State) -> Dir;
+    fn step(&mut self, &State) -> Dir;
 }
 
 impl Settings {
@@ -167,21 +167,21 @@ pub fn request(url: String, obj: json::JsonObject) -> Option<State> {
     }
 }
 
-pub fn step(settings: &Settings, state: &State, dir: Dir) -> (String, json::JsonObject) {
+pub fn step_msg(settings: &Settings, state: &State, dir: Dir) -> (String, json::JsonObject) {
     let mut obj: json::JsonObject = TreeMap::new();
     obj.insert("key".to_string(), json::String(settings.key.clone()));
     obj.insert("dir".to_string(), json::String(format_args!(fmt::format, "{}", dir))); 
     (state.play_url.clone(), obj)
 }
 
-pub fn start(settings: &Settings) -> (String, json::JsonObject) {
+pub fn start_msg(settings: &Settings) -> (String, json::JsonObject) {
     match settings.mode.clone() {
-        Training(opt_turns, opt_map) => start_training(settings, opt_turns, opt_map),
-        Arena => start_arena(settings),
+        Training(opt_turns, opt_map) => start_training_msg(settings, opt_turns, opt_map),
+        Arena => start_arena_msg(settings),
     }
 }
 
-pub fn start_training(settings: &Settings, opt_turns: Option<u64>, opt_map: Option<String>) -> (String, json::JsonObject) {
+pub fn start_training_msg(settings: &Settings, opt_turns: Option<u64>, opt_map: Option<String>) -> (String, json::JsonObject) {
     let mut obj: json::JsonObject = TreeMap::new();
     obj.insert("key".to_string(), json::String(settings.key.clone()));
     match opt_turns {
@@ -195,7 +195,7 @@ pub fn start_training(settings: &Settings, opt_turns: Option<u64>, opt_map: Opti
     (settings.start_url("training"), obj)
 }
 
-pub fn start_arena(settings: &Settings) -> (String, json::JsonObject) {
+pub fn start_arena_msg(settings: &Settings) -> (String, json::JsonObject) {
     let mut obj: json::JsonObject = TreeMap::new();
     obj.insert("key".to_string(), json::String(settings.key.clone()));
     (settings.start_url("arena"), obj)

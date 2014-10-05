@@ -14,7 +14,7 @@ impl RandomBot {
 
 impl Bot for RandomBot {
 
-    fn move(&mut self, state: &State) -> Dir {
+    fn step(&mut self, state: &State) -> Dir {
         println!("{}\n\n", state);
         self.hero_id = state.hero.id;
         rand::random()
