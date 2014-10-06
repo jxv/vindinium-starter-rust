@@ -165,8 +165,12 @@ pub fn request(url: String, obj: json::JsonObject) -> Option<State> {
     match json::decode(state_str.as_slice()) {
         Ok(state) => Some(state),
         Err(err) => {
-           println!("{}", err);
-           None
+            if "Vindinium - The game is finished".to_string() == state_str {
+                println!("Timeout!");
+            } else {
+                println!("{}", err);
+            }
+            None
         },
     }
 }
