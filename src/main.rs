@@ -26,17 +26,13 @@ fn main() {
         None => { return (); }
     };
     let mut bot = RandomBot::new();
-    let mut shown_view_url = false;
     loop {
+        state.pretty_print();
         if state.game.finished {
             break;
         }
         bot = bot.step(&state);
         let (url, obj) = step_msg(&settings, &state, bot.dir());
-        if !shown_view_url {
-            println!("{}", state.view_url);
-            shown_view_url = true;
-        }
         state = match request(url, obj) {
             Some(s) => s,
             None => { break; },

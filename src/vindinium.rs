@@ -1,15 +1,18 @@
 extern crate serialize;
 extern crate http;
 extern crate url;
+extern crate term;
 use std::string::{String};
 use std::fmt;
 use std::collections::TreeMap;
 use std::char::{to_digit};
-use self::serialize::{Encoder, Encodable, Decoder, Decodable};
-use self::serialize::json;
 use http::client::{RequestWriter};
 use http::method::{Post};
 use url::{Url};
+use self::serialize::{Encoder, Encodable, Decoder, Decodable};
+use self::serialize::json;
+use self::term::{Terminal};
+use self::term::color;
 
 
 // Types
@@ -130,7 +133,7 @@ pub fn request(url: String, obj: json::JsonObject) -> Option<State> {
     
     let msg = json::encode(&json::Object(obj));
     let content_type = http::headers::content_type::MediaType::new
-        ("application".into_string(), "json".into_string(), Vec::new());
+        ("application".to_string(), "json".to_string(), Vec::new());
     request.headers.content_length = Some(msg.len());
     request.headers.content_type = Some(content_type);
     request.headers.accept = Some("application/json".to_string());
@@ -326,5 +329,107 @@ impl <S: Decoder<E>, E> Decodable<S, E> for State {
             view_url: try!(d.read_struct_field("viewUrl", 3, |d| Decodable::decode(d))),
             play_url: try!(d.read_struct_field("playUrl", 4, |d| Decodable::decode(d))),
         })
+    }
+}
+
+// Misc.
+
+impl State {
+    pub fn pretty_print(&self) {
+        let mut term = term::stdout().unwrap();
+        // print game info
+        (writeln!(term, "id:{} turns:{}/{}", self.game.id, self.game.turn, self.game.max_turns)).unwrap();
+        // print tiles on board
+        for &ref row in self.game.board.tiles.iter() {
+            for &tile in row.iter() {
+                let s: String = match tile {
+                    FreeTile => {
+                        term.bg(color::BRIGHT_BLACK).unwrap();
+                        "  ".to_string()
+                    },
+                    WoodTile => {
+                        term.bg(color::BRIGHT_BLACK).unwrap();
+                        term.fg(color::WHITE).unwrap();
+                        "##".to_string()
+                    },
+                    TavernTile => {
+                        term.bg(color::BRIGHT_BLACK).unwrap();
+                        term.fg(color::WHITE).unwrap();
+                        "[]".to_string()
+                    },
+                    HeroTile(hero_id) => {
+                        term.bg(color::BRIGHT_BLACK).unwrap();
+                        match hero_id {
+                            1 => {
+                                term.fg(color::BRIGHT_RED).unwrap();
+                                "@1".to_string()
+                            }
+                            2 => {
+                                term.fg(color::BRIGHT_BLUE).unwrap();
+                                "@2".to_string()
+                            }
+                            3 => {
+                                term.fg(color::BRIGHT_GREEN).unwrap();
+                                "@3".to_string()
+                            }
+                            4 => {
+                                term.fg(color::BRIGHT_YELLOW).unwrap();
+                                "@4".to_string()
+                            }
+                            _ => {
+                                "  ".to_string()
+                            }
+                        }
+                    },
+                    MineTile(None) => {
+                        term.bg(color::BRIGHT_BLACK).unwrap();
+                        term.fg(color::WHITE).unwrap();
+                        "$-".to_string()
+                    },
+                    MineTile(Some(hero_id)) => {
+                        term.fg(color::WHITE).unwrap();
+                        match hero_id {
+                            1 => {
+                                term.bg(color::RED).unwrap();
+                                "$1".to_string()
+                            }
+                            2 => {
+                                term.bg(color::BLUE).unwrap();
+                                "$2".to_string()
+                            }
+                            3 => {
+                                term.bg(color::GREEN).unwrap();
+                                "$3".to_string()
+                            }
+                            4 => {
+                                term.bg(color::YELLOW).unwrap();
+                                "$4".to_string()
+                            }
+                            _ => {
+                                "  ".to_string()
+                            }
+                        }
+                    },
+                };
+                (write!(term, "{}", s)).unwrap();
+            }
+            (writeln!(term,"")).unwrap();
+        }
+        term.reset().unwrap();
+        // print view url
+        let ref hero = self.game.heroes[0];
+        term.fg(color::BRIGHT_RED).unwrap();
+        (writeln!(term,"@1\t{}\tlife:{}\tmines:{}\tgold:{}", hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
+        let ref hero = self.game.heroes[1];
+        term.fg(color::BRIGHT_BLUE).unwrap();
+        (writeln!(term,"@2\t{}\tlife:{}\tmines:{}\tgold:{}", hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
+        let ref hero = self.game.heroes[2];
+        term.fg(color::BRIGHT_GREEN).unwrap();
+        (writeln!(term,"@3\t{}\tlife:{}\tmines:{}\tgold:{}", hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
+        let ref hero = self.game.heroes[3];
+        term.fg(color::BRIGHT_YELLOW).unwrap();
+        (writeln!(term,"@4\t{}\tlife:{}\tmines:{}\tgold:{}", hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
+        // reset colors to back default
+        term.reset().unwrap();
     }
 }
