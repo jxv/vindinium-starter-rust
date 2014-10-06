@@ -335,6 +335,20 @@ impl <S: Decoder<E>, E> Decodable<S, E> for State {
 // Misc.
 
 impl State {
+    pub fn clear_pretty_print(&self) {
+        // clear game info
+        print!("\x1b[1A\x1b[2K");
+        // clear board 
+        for _ in range(0, self.game.board.size) {
+            print!("\x1b[1A\x1b[2K");
+        }
+        // clear players info
+        for _ in range(0,self.game.heroes.len()-1) {
+            print!("\x1b[1A\x1b[2K");
+        }
+        // clear last player info without clearing an extra line
+        println!("\x1b[1A\x1b[2K\x1b[1A");
+    }
     pub fn pretty_print(&self) {
         let mut term = term::stdout().unwrap();
         // print game info
@@ -416,19 +430,19 @@ impl State {
             (writeln!(term,"")).unwrap();
         }
         term.reset().unwrap();
-        // print view url
-        let ref hero = self.game.heroes[0];
-        term.fg(color::BRIGHT_RED).unwrap();
-        (writeln!(term,"@1\t{}\tlife:{}\tmines:{}\tgold:{}", hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
-        let ref hero = self.game.heroes[1];
-        term.fg(color::BRIGHT_BLUE).unwrap();
-        (writeln!(term,"@2\t{}\tlife:{}\tmines:{}\tgold:{}", hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
-        let ref hero = self.game.heroes[2];
-        term.fg(color::BRIGHT_GREEN).unwrap();
-        (writeln!(term,"@3\t{}\tlife:{}\tmines:{}\tgold:{}", hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
-        let ref hero = self.game.heroes[3];
-        term.fg(color::BRIGHT_YELLOW).unwrap();
-        (writeln!(term,"@4\t{}\tlife:{}\tmines:{}\tgold:{}", hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
+        // print players' info
+        for i in range(0, self.game.heroes.len()) {
+            let ref hero = self.game.heroes[i];
+            term.fg(match i {
+                0 => color::BRIGHT_RED,
+                1 => color::BRIGHT_BLUE,
+                2 => color::BRIGHT_GREEN,
+                3 => color::BRIGHT_YELLOW,
+                _ => color::WHITE,
+            }).unwrap();
+            (writeln!(term,"@1\t{}\tlife:{}\tmines:{}\tgold:{}",
+                hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
+        }
         // reset colors to back default
         term.reset().unwrap();
     }

@@ -27,6 +27,9 @@ fn main() {
     };
     let mut bot = RandomBot::new();
     loop {
+        if state.game.turn >= state.game.heroes.len() as int {
+            state.clear_pretty_print();
+        }
         state.pretty_print();
         if state.game.finished {
             break;
