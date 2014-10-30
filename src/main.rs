@@ -51,7 +51,7 @@ fn get_key(filename: &str) -> String {
             key_.pop();
             key_
         }
-        Err(err) => fail!("{}", err),
+        Err(err) => panic!("{}", err),
     }
 }
 
