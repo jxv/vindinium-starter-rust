@@ -81,11 +81,11 @@ pub struct Board {
 
 #[deriving(Show, Clone)]
 pub enum Tile {
-    FreeTile,
-    WoodTile,
-    TavernTile,
-    HeroTile(HeroId),
-    MineTile(Option<HeroId>),
+    Free,
+    Wood,
+    Tavern,
+    Hero(HeroId),
+    Mine(Option<HeroId>),
 }
 
 #[deriving(Show, Clone, Rand)]
@@ -184,8 +184,8 @@ pub fn step_msg(settings: &Settings, state: &State, dir: Dir) -> (String, json::
 
 pub fn start_msg(settings: &Settings) -> (String, json::JsonObject) {
     match settings.mode.clone() {
-        Training(opt_turns, opt_map) => start_training_msg(settings, opt_turns, opt_map),
-        Arena => start_arena_msg(settings),
+        Mode::Training(opt_turns, opt_map) => start_training_msg(settings, opt_turns, opt_map),
+        Mode::Arena => start_arena_msg(settings),
     }
 }
 
@@ -214,11 +214,11 @@ pub fn start_arena_msg(settings: &Settings) -> (String, json::JsonObject) {
 impl <S: Encoder<E>, E> Encodable<S, E> for Dir {
     fn encode(&self, e: &mut S) -> Result<(), E> {
         match *self {
-            Stay =>  e.emit_str("Stay"),
-            North => e.emit_str("North"),
-            South => e.emit_str("South"),
-            East =>  e.emit_str("East"),
-            West =>  e.emit_str("West"),
+            Dir::Stay =>  e.emit_str("Stay"),
+            Dir::North => e.emit_str("North"),
+            Dir::South => e.emit_str("South"),
+            Dir::East =>  e.emit_str("East"),
+            Dir::West =>  e.emit_str("West"),
         }
     }
 }
@@ -281,17 +281,17 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Board {
                         break;
                     }
                     match (tile_bytes[i] as char, tile_bytes[i+1] as char) {
-                        (' ',' ') => row.push(FreeTile),
-                        ('#','#') => row.push(WoodTile),
+                        (' ',' ') => row.push(Tile::Free),
+                        ('#','#') => row.push(Tile::Wood),
                         ('@',c)   => match to_digit(c,10) {
-                            None => return Err(d.error("failed parse HeroTile num")),
-                            Some(n) => row.push(HeroTile(n as int)),
+                            None => return Err(d.error("failed parse Tile::Hero num")),
+                            Some(n) => row.push(Tile::Hero(n as int)),
                         },
-                        ('[',']') => row.push(TavernTile),
-                        ('$','-') => row.push(MineTile(None)),
+                        ('[',']') => row.push(Tile::Tavern),
+                        ('$','-') => row.push(Tile::Mine(None)),
                         ('$',c)   => match to_digit(c,10) {
-                            None => return Err(d.error("failed parse MineTile num")),
-                            Some(n) => row.push(MineTile(Some(n as int))),
+                            None => return Err(d.error("failed parse Tile::Mine num")),
+                            Some(n) => row.push(Tile::Mine(Some(n as int))),
                         },
                         (a,b) => return Err(d.error(format!("failed parsing tile \"{}{}\"", a, b).as_slice())),
                     }
@@ -361,21 +361,21 @@ impl State {
         for &ref row in self.game.board.tiles.iter() {
             for &tile in row.iter() {
                 let s: String = match tile {
-                    FreeTile => {
+                    Tile::Free => {
                         term.bg(color::BRIGHT_BLACK).unwrap();
                         "  ".to_string()
                     },
-                    WoodTile => {
+                    Tile::Wood => {
                         term.bg(color::BRIGHT_BLACK).unwrap();
                         term.fg(color::WHITE).unwrap();
                         "##".to_string()
                     },
-                    TavernTile => {
+                    Tile::Tavern => {
                         term.bg(color::BRIGHT_BLACK).unwrap();
                         term.fg(color::WHITE).unwrap();
                         "[]".to_string()
                     },
-                    HeroTile(hero_id) => {
+                    Tile::Hero(hero_id) => {
                         term.bg(color::BRIGHT_BLACK).unwrap();
                         match hero_id {
                             1 => {
@@ -399,12 +399,12 @@ impl State {
                             }
                         }
                     },
-                    MineTile(None) => {
+                    Tile::Mine(None) => {
                         term.bg(color::BRIGHT_BLACK).unwrap();
                         term.fg(color::WHITE).unwrap();
                         "$-".to_string()
                     },
-                    MineTile(Some(hero_id)) => {
+                    Tile::Mine(Some(hero_id)) => {
                         term.fg(color::WHITE).unwrap();
                         match hero_id {
                             1 => {

@@ -18,7 +18,7 @@ fn main() {
     let settings = vindinium::Settings {
         key: get_key("key.txt"),
         url: "http://vindinium.org".to_string(),
-        mode: Training(Some(100), Some("m1".to_string())),
+        mode: Mode::Training(Some(100), Some("m1".to_string())),
     };
     let (url, obj) = start_msg(&settings);
     let mut state = match vindinium::request(url, obj) {

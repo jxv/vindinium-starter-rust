@@ -1,5 +1,5 @@
 use std::rand;
-use vindinium::{Bot, Dir, Stay, State};
+use vindinium::{Bot, Dir, State};
 
 
 #[deriving(Show,Clone)]
@@ -10,7 +10,7 @@ pub struct RandomBot {
 impl RandomBot {
     pub fn new() -> RandomBot {
         RandomBot {
-            dir: Stay,
+            dir: Dir::Stay,
         }
     }
 }
