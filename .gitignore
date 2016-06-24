@@ -1,5 +1,5 @@
 /target
 /doc
-.*
+.idea
+*.iml
 Cargo.lock
-key.txt

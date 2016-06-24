@@ -1,11 +1,11 @@
 [package]
-
 name = "vindinium"
 version = "0.0.1"
 authors = ["jxv https://github.com/jxv/vindinium-starter-rust"]
 
-[dependencies.url]
-git = "https://github.com/servo/rust-url.git"
-
-[dependencies.http]
-git = "https://github.com/chris-morgan/rust-http.git"
+[dependencies]
+hyper = "0.9.9"
+url = "1.1.1"
+rustc-serialize = "0.3.19"
+rand = "0.3.14"
+term = "0.4.4"

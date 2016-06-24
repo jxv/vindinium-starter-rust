@@ -1,10 +1,11 @@
-#![feature(globs)]
-
-extern crate serialize;
-extern crate http;
+extern crate hyper;
 extern crate url;
+extern crate rustc_serialize;
 use std::string::String;
-use std::io::File;
+use std::fs::File;
+use std::path::Path;
+use std::io::Read;
+use self::rustc_serialize::json;
 
 use vindinium::*;
 use bot::*;
@@ -20,14 +21,15 @@ fn main() {
         url: "http://vindinium.org".to_string(),
         mode: Mode::Training(Some(100), Some("m1".to_string())),
     };
+
     let (url, obj) = start_msg(&settings);
-    let mut state = match vindinium::request(url, obj) {
+    let mut state = match vindinium::request(url, obj as json::Object) {
         Some(s) => s,
         None => { return (); }
     };
     let mut bot = RandomBot::new();
     loop {
-        if state.game.turn >= state.game.heroes.len() as int {
+        if state.game.turn >= state.game.heroes.len() as isize {
             state.clear_pretty_print();
         }
         state.pretty_print();
@@ -44,12 +46,11 @@ fn main() {
 }
 
 fn get_key(filename: &str) -> String {
-    let res_key = File::open(&Path::new(filename)).read_to_string();
-    match res_key {
-        Ok(key) => {
-            let mut key_ = key.clone();
-            key_.pop();
-            key_
+    let mut res_key = String::new();
+    let res = File::open(&Path::new(filename)).unwrap().read_to_string(&mut res_key);
+    match res {
+        Ok(_) => {
+            res_key.clone()
         }
         Err(err) => panic!("{}", err),
     }
