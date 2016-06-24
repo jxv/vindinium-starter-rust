@@ -5,7 +5,6 @@ extern crate rustc_serialize;
 use std::string::{String};
 use std::io::Read;
 use std::fmt;
-use std::collections::BTreeMap;
 use std::char;
 use hyper::client::Client;
 use hyper::header::{ContentLength, ContentType, Accept, UserAgent, qitem};
@@ -176,7 +175,7 @@ pub fn start_msg(settings: &Settings) -> (String, json::Object) {
 }
 
 pub fn start_training_msg(settings: &Settings, opt_turns: Option<u64>, opt_map: Option<String>) -> (String, json::Object) {
-    let mut obj: json::Object = BTreeMap::new();
+    let mut obj: json::Object = json::Object::new();
     obj.insert("key".to_string(), Json::String(settings.key.clone()));
     match opt_turns {
         Some(turns) => { obj.insert("turns".to_string(), Json::U64(turns)); },
@@ -190,7 +189,7 @@ pub fn start_training_msg(settings: &Settings, opt_turns: Option<u64>, opt_map: 
 }
 
 pub fn start_arena_msg(settings: &Settings) -> (String, json::Object) {
-    let mut obj: json::Object = BTreeMap::new();
+    let mut obj: json::Object = json::Object::new();
     obj.insert("key".to_string(), Json::String(settings.key.clone()));
     (settings.start_url("arena"), obj)
 }
