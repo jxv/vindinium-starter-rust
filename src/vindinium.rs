@@ -1,40 +1,42 @@
-extern crate serialize;
-extern crate http;
+extern crate hyper;
 extern crate url;
 extern crate term;
+extern crate rustc_serialize;
 use std::string::{String};
+use std::io::Read;
 use std::fmt;
-use std::collections::TreeMap;
-use std::char::{to_digit};
-use http::client::{RequestWriter};
-use http::method::{Post};
+use std::collections::BTreeMap;
+use std::char;
+use hyper::client::Client;
+use hyper::header::{ContentLength, ContentType, Accept, UserAgent, qitem};
+use hyper::mime::Mime;
 use url::{Url};
-use self::serialize::{Encoder, Encodable, Decoder, Decodable};
-use self::serialize::json;
+use rustc_serialize::json;
+use rustc_serialize::json::Json;
+use rustc_serialize::{Encoder, Encodable, Decoder, Decodable};
 use self::term::{Terminal};
 use self::term::color;
-
 
 // Types
 
 pub type Key = String;
 pub type GameId = String;
-pub type HeroId = int;
+pub type HeroId = isize;
 
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub enum Mode {
     Training(Option<u64>,Option<String>),
     Arena
 }
 
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct Settings {
     pub key: Key,
     pub url: String,
     pub mode: Mode,
 }
 
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct State {
     pub game: Game,
     pub hero: Hero,
@@ -43,43 +45,43 @@ pub struct State {
     pub play_url: String,
 }
 
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct Game {
     pub id: GameId,
-    pub turn: int,
-    pub max_turns: int,
+    pub turn: isize,
+    pub max_turns: isize,
     pub heroes: Vec<Hero>,
     pub board: Board,
     pub finished: bool,
 }
 
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct Pos {
-    pub x: int,
-    pub y: int,
+    pub x: isize,
+    pub y: isize,
 }
 
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct Hero {
     pub id: HeroId,
     pub name: String,
     pub user_id: Option<String>,
-    pub elo: Option<int>,
+    pub elo: Option<isize>,
     pub pos: Pos,
-    pub life: int,
-    pub gold: int,
-    pub mine_count: int,
+    pub life: isize,
+    pub gold: isize,
+    pub mine_count: isize,
     pub spawn_pos: Pos,
     pub crashed: bool,
 }
 
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct Board {
-    pub size: uint,
+    pub size: usize,
     pub tiles: Vec<Vec<Tile>>,
 }
 
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub enum Tile {
     Free,
     Wood,
@@ -88,7 +90,7 @@ pub enum Tile {
     Mine(Option<HeroId>),
 }
 
-#[deriving(Show, Clone, Rand)]
+#[derive(Debug, Clone)]
 pub enum Dir {
     Stay,
     North,
@@ -114,117 +116,101 @@ impl Settings {
     }
 }
 
-pub fn request(url: String, obj: json::JsonObject) -> Option<State> {
-    let url = match Url::parse(url.as_slice()) {
-        Ok(u) => u,
-        Err(err) => {
-            println!("{}", err);
-            return None
-        },
-    };
+fn parse_request(url: Url, obj: json::Object) -> Option<State> {
+    let content_type: Mime = "Application/Json".parse().unwrap();
+    let client = Client::new();
+    let msg = json::encode(&obj).unwrap();
+    let request = client.post(url).body(&msg)
+        .header(ContentLength(msg.len() as u64))
+        .header(ContentType(content_type.clone()))
+        .header(Accept(vec![qitem(content_type)]))
+        .header(UserAgent("vindinium-starter-rust".to_string()));
 
-    let mut request: RequestWriter = match RequestWriter::new(Post, url) {
-        Ok(req) => req,
-        Err(err) => {
-            println!("{}", err);
-            return None
-        },
-    };
-    
-    let msg = json::encode(&json::Object(obj));
-    let content_type = http::headers::content_type::MediaType::new
-        ("application".to_string(), "json".to_string(), Vec::new());
-    request.headers.content_length = Some(msg.len());
-    request.headers.content_type = Some(content_type);
-    request.headers.accept = Some("application/json".to_string());
-    request.headers.user_agent = Some("vindinium-starter-rust".to_string());
+    let mut response = request.send().unwrap();
+    assert_eq!(response.status, hyper::Ok);
 
-    match request.write(msg.as_bytes()) {
-        Ok(()) => (),
-        Err(err) => {
-            println!("{}", err);
-            return None
-        }
-    };
-
-    let mut response = match request.read_response() {
-        Ok(resp) => resp,
-        Err((_, err)) => {
-            println!("{}", err);
-            return None
-        }
-    };
-    let state_str = match response.read_to_string() {
-        Ok(s) => s,
-        Err(err) => {
-            println!("{}", err);
-            return None
-        }
-    };
-
-    match json::decode(state_str.as_slice()) {
-        Ok(state) => Some(state),
-        Err(err) => {
-            if "Vindinium - The game is finished".to_string() == state_str {
-                println!("Timeout!");
-            } else {
-                println!("{}", err);
+    let mut state_str = String::new();
+    match response.read_to_string(&mut state_str) {
+        Ok(_) => {
+            return match json::decode(&state_str) {
+                Ok(state) => Some(state),
+                Err(err) => {
+                    if "Vindinium - The game is finished".to_string() == state_str {
+                        println!("Timeout!");
+                    } else {
+                        println!("{}", err);
+                    }
+                    None
+                },
             }
-            None
         },
-    }
+        Err(err) => {
+            println!("{}", err);
+            return None
+        }
+    };
 }
 
-pub fn step_msg(settings: &Settings, state: &State, dir: Dir) -> (String, json::JsonObject) {
-    let mut obj: json::JsonObject = TreeMap::new();
-    obj.insert("key".to_string(), json::String(settings.key.clone()));
-    obj.insert("dir".to_string(), json::String(format_args!(fmt::format, "{}", dir))); 
+pub fn request(url: String, obj: json::Object) -> Option<State> {
+    match Url::parse(url.as_str()) {
+        Ok(u) => return parse_request(u, obj),
+        Err(err) => {
+            println!("{}", err);
+            return None
+        }
+    };
+}
+
+pub fn step_msg(settings: &Settings, state: &State, dir: Dir) -> (String, json::Object) {
+    let mut obj: json::Object = json::Object::new();
+    obj.insert("key".to_string(), Json::String(settings.key.clone()));
+    obj.insert("dir".to_string(), Json::String(dir.to_string()));
     (state.play_url.clone(), obj)
 }
 
-pub fn start_msg(settings: &Settings) -> (String, json::JsonObject) {
+pub fn start_msg(settings: &Settings) -> (String, json::Object) {
     match settings.mode.clone() {
         Mode::Training(opt_turns, opt_map) => start_training_msg(settings, opt_turns, opt_map),
         Mode::Arena => start_arena_msg(settings),
     }
 }
 
-pub fn start_training_msg(settings: &Settings, opt_turns: Option<u64>, opt_map: Option<String>) -> (String, json::JsonObject) {
-    let mut obj: json::JsonObject = TreeMap::new();
-    obj.insert("key".to_string(), json::String(settings.key.clone()));
+pub fn start_training_msg(settings: &Settings, opt_turns: Option<u64>, opt_map: Option<String>) -> (String, json::Object) {
+    let mut obj: json::Object = BTreeMap::new();
+    obj.insert("key".to_string(), Json::String(settings.key.clone()));
     match opt_turns {
-        Some(turns) => { obj.insert("turns".to_string(), json::U64(turns)); }, 
+        Some(turns) => { obj.insert("turns".to_string(), Json::U64(turns)); },
         None => (),
     };
     match opt_map {
-        Some(map) => { obj.insert("map".to_string(), json::String(map)); },
+        Some(map) => { obj.insert("map".to_string(), Json::String(map)); },
         None => (),
     };
     (settings.start_url("training"), obj)
 }
 
-pub fn start_arena_msg(settings: &Settings) -> (String, json::JsonObject) {
-    let mut obj: json::JsonObject = TreeMap::new();
-    obj.insert("key".to_string(), json::String(settings.key.clone()));
+pub fn start_arena_msg(settings: &Settings) -> (String, json::Object) {
+    let mut obj: json::Object = BTreeMap::new();
+    obj.insert("key".to_string(), Json::String(settings.key.clone()));
     (settings.start_url("arena"), obj)
 }
 
 // Json
 
-impl <S: Encoder<E>, E> Encodable<S, E> for Dir {
-    fn encode(&self, e: &mut S) -> Result<(), E> {
+impl Encodable for Dir {
+    fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
         match *self {
-            Dir::Stay =>  e.emit_str("Stay"),
-            Dir::North => e.emit_str("North"),
-            Dir::South => e.emit_str("South"),
-            Dir::East =>  e.emit_str("East"),
-            Dir::West =>  e.emit_str("West"),
+            Dir::Stay =>  s.emit_str("Stay"),
+            Dir::North => s.emit_str("North"),
+            Dir::South => s.emit_str("South"),
+            Dir::East =>  s.emit_str("East"),
+            Dir::West =>  s.emit_str("West"),
         }
     }
 }
 
-impl <S: Decoder<E>, E> Decodable<S, E> for Pos {
-    fn decode(d: &mut S) -> Result<Pos, E> {
+impl Decodable for Pos {
+    fn decode<D: Decoder>(d: &mut D) -> Result<Self, D::Error> {
         d.read_struct("root", 0, |d| {
             Ok(Pos {
                 x: try!(d.read_struct_field("x", 0, |d| Decodable::decode(d))),
@@ -234,8 +220,8 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Pos {
     }
 }
 
-impl <S: Decoder<E>, E> Decodable<S, E> for Hero {
-    fn decode(d: &mut S) -> Result<Hero, E> {
+impl Decodable for Hero {
+    fn decode<D: Decoder>(d: &mut D) -> Result<Hero, D::Error> {
         d.read_struct("root", 0, |d| {
             Ok(Hero {
                 id: try!(d.read_struct_field("id", 0, |d| Decodable::decode(d))),
@@ -263,8 +249,8 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Hero {
     }
 }
 
-impl <S: Decoder<E>, E> Decodable<S, E> for Board {
-    fn decode(d: &mut S) -> Result<Board, E> {
+impl Decodable for Board {
+    fn decode<D: Decoder>(d: &mut D) -> Result<Board, D::Error> {
         let size = try!(d.read_struct_field("size", 0, |d| Decodable::decode(d)));
         let tiles = try!(d.read_struct_field("tiles", 1, |d| {
             let mut tiles: Vec<Vec<Tile>> = Vec::with_capacity(size);
@@ -273,7 +259,7 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Board {
                 return Err(d.error("tile string is incorrect size"));
             }
             let tile_bytes = tile_str.as_bytes();
-            let mut i = 0u;
+            let mut i = 0;
             loop {
                 let mut row: Vec<Tile> = Vec::with_capacity(size);
                 loop {
@@ -283,17 +269,17 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Board {
                     match (tile_bytes[i] as char, tile_bytes[i+1] as char) {
                         (' ',' ') => row.push(Tile::Free),
                         ('#','#') => row.push(Tile::Wood),
-                        ('@',c)   => match to_digit(c,10) {
+                        ('@',c)   => match char::to_digit(c,10) {
                             None => return Err(d.error("failed parse Tile::Hero num")),
-                            Some(n) => row.push(Tile::Hero(n as int)),
+                            Some(n) => row.push(Tile::Hero(n as isize)),
                         },
                         ('[',']') => row.push(Tile::Tavern),
                         ('$','-') => row.push(Tile::Mine(None)),
-                        ('$',c)   => match to_digit(c,10) {
+                        ('$',c)   => match char::to_digit(c,10) {
                             None => return Err(d.error("failed parse Tile::Mine num")),
-                            Some(n) => row.push(Tile::Mine(Some(n as int))),
+                            Some(n) => row.push(Tile::Mine(Some(n as isize))),
                         },
-                        (a,b) => return Err(d.error(format!("failed parsing tile \"{}{}\"", a, b).as_slice())),
+                        (a,b) => return Err(d.error(&format!("failed parsing tile \"{}{}\"", a, b))),
                     }
                     i += 2;
                     if i % (size * 2) == 0 {
@@ -311,8 +297,8 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Board {
     }
 }
 
-impl <S: Decoder<E>, E> Decodable<S, E> for Game {
-    fn decode(d: &mut S) -> Result<Game, E> {
+impl Decodable for Game {
+    fn decode<D: Decoder>(d: &mut D) -> Result<Game, D::Error>{
         Ok(Game {
             id: try!(d.read_struct_field("id", 0, |d| Decodable::decode(d))),
             turn: try!(d.read_struct_field("turn", 1, |d| Decodable::decode(d))),
@@ -324,8 +310,8 @@ impl <S: Decoder<E>, E> Decodable<S, E> for Game {
     }
 }
 
-impl <S: Decoder<E>, E> Decodable<S, E> for State {
-    fn decode(d: &mut S) -> Result<State, E> {
+impl Decodable for State {
+    fn decode<D: Decoder>(d: &mut D) -> Result<State, D::Error> {
         Ok(State {
             game: try!(d.read_struct_field("game", 0, |d| Decodable::decode(d))),
             hero: try!(d.read_struct_field("hero", 1, |d| Decodable::decode(d))),
@@ -343,11 +329,11 @@ impl State {
         // clear game info
         print!("\x1b[1A\x1b[2K");
         // clear board 
-        for _ in range(0, self.game.board.size) {
+        for _ in 0..self.game.board.size {
             print!("\x1b[1A\x1b[2K");
         }
         // clear players info
-        for _ in range(0,self.game.heroes.len()-1) {
+        for _ in 0..self.game.heroes.len()-1 {
             print!("\x1b[1A\x1b[2K");
         }
         // clear last player info without clearing an extra line
@@ -358,9 +344,9 @@ impl State {
         // print game info
         (writeln!(term, "id:{} turns:{}/{}", self.game.id, self.game.turn, self.game.max_turns)).unwrap();
         // print tiles on board
-        for &ref row in self.game.board.tiles.iter() {
-            for &tile in row.iter() {
-                let s: String = match tile {
+        for row in &self.game.board.tiles {
+            for tile in row {
+                let s: String = match *tile {
                     Tile::Free => {
                         term.bg(color::BRIGHT_BLACK).unwrap();
                         "  ".to_string()
@@ -435,7 +421,7 @@ impl State {
         }
         term.reset().unwrap();
         // print players' info
-        for i in range(0, self.game.heroes.len()) {
+        for i in 0..self.game.heroes.len() {
             let ref hero = self.game.heroes[i];
             term.fg(match i {
                 0 => color::BRIGHT_RED,
@@ -444,10 +430,22 @@ impl State {
                 3 => color::BRIGHT_YELLOW,
                 _ => color::WHITE,
             }).unwrap();
-            (writeln!(term,"@1\t{}\tlife:{}\tmines:{}\tgold:{}",
-                hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
+            (writeln!(term,"@{}\t{}\tlife:{}\tmines:{}\tgold:{}",
+               i+1, hero.name, hero.life, hero.mine_count, hero.gold)).unwrap();
         }
         // reset colors to back default
         term.reset().unwrap();
+    }
+}
+
+impl fmt::Display for Dir {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Dir::Stay  => write!(f, "{}", "Stay"),
+            Dir::North => write!(f, "{}", "North"),
+            Dir::South => write!(f, "{}", "South"),
+            Dir::East  => write!(f, "{}", "East"),
+            Dir::West  => write!(f, "{}", "West"),
+        }
     }
 }
